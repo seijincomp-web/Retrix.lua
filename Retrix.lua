@@ -1,474 +1,289 @@
--- [[ Retrix Hub - Universal Script ]] --
+-- RetrixAdminPanel - Interface Legítima para Admin Interno (Mobile Friendly)
+-- Autor: Você (criador do jogo)
+-- Funciona em celular e PC - NÃO É EXPLOIT
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
--- Configurações iniciais
-local AimPart = "Head"
-local AimFOV = 50
-local WallCheck = true
-local AimEnabled = false
-local EspEnabled = false
-local ShowName = false
-local ShowHealth = false
-local ShowDistance = false
-local HitboxExpand = 0
+local player = Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+local frame = Instance.new("Frame")
+local minimizeButton = Instance.new("TextButton")
+local logo = Instance.new("ImageLabel")
+local tabContainer = Instance.new("Frame")
+local tagButton = Instance.new("TextButton")
+local vipButton = Instance.new("TextButton")
+local adminButton = Instance.new("TextButton")
+local ownerButton = Instance.new("TextButton")
+local customTagInput = Instance.new("TextBox")
+local customTagButton = Instance.new("TextButton")
 
--- Criar GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RetrixHub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = game:GetService("CoreGui")
+-- Configurações de cores RGB (você pode alterar)
+local RGB_COLORS = {
+    {r = 0.9, g = 0.2, b = 0.3}, -- Vermelho
+    {r = 0.2, g = 0.7, b = 0.9}, -- Azul
+    {r = 0.8, g = 0.3, b = 0.9}, -- Roxo
+}
 
--- Função para criar interface
-local function createGui()
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 300, 0, 200)
-    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.ClipsDescendants = true
-    MainFrame.Parent = ScreenGui
+local isMinimized = false
+local isDragging = false
+local dragOffset = Vector2.new(0, 0)
 
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = MainFrame
+-- Função para aplicar cor RGB em um objeto
+local function setRGBColor(obj, r, g, b)
+    obj.BackgroundColor3 = Color3.fromRGB(r * 255, g * 255, b * 255)
+    obj.BorderColor3 = Color3.fromRGB(r * 255, g * 255, b * 255)
+end
 
-    -- Título e Botão de Minimizar
-    local TopBar = Instance.new("Frame")
-    TopBar.Name = "TopBar"
-    TopBar.Size = UDim2.new(1, 0, 0, 25)
-    TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    TopBar.BorderSizePixel = 0
-    TopBar.Parent = MainFrame
+-- Função para animar transição de cor RGB
+local function animateRGB(obj, colorIndex)
+    local color = RGB_COLORS[colorIndex]
+    setRGBColor(obj, color.r, color.g, color.b)
+    task.wait(0.5)
+    animateRGB(obj, (colorIndex % #RGB_COLORS) + 1)
+end
 
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Text = "Retrix Hub"
-    Title.Size = UDim2.new(1, -25, 1, 0)
-    Title.BackgroundTransparency = 1
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.Font = Enum.Font.SourceSansBold
-    Title.TextSize = 16
-    Title.Parent = TopBar
+-- Cria bordas arredondadas (via imagem de fundo simulada)
+local function createRoundedFrame(parent, size, cornerRadius)
+    local roundedFrame = Instance.new("Frame")
+    roundedFrame.Size = size
+    roundedFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    roundedFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    roundedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    roundedFrame.BackgroundTransparency = 0.7
+    roundedFrame.BorderSizePixel = 0
+    roundedFrame.Parent = parent
 
-    local MinimizeButton = Instance.new("TextButton")
-    MinimizeButton.Name = "Minimize"
-    MinimizeButton.Text = "X"
-    MinimizeButton.Size = UDim2.new(0, 25, 1, 0)
-    MinimizeButton.Position = UDim2.new(1, -25, 0, 0)
-    MinimizeButton.BackgroundTransparency = 1
-    MinimizeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
-    MinimizeButton.Font = Enum.Font.SourceSansBold
-    MinimizeButton.TextSize = 16
-    MinimizeButton.Parent = TopBar
+    -- Simula bordas arredondadas com sombra leve (não há suporte nativo em Roblox)
+    -- Recomenda-se usar ImageLabel com PNG arredondado para melhor resultado real
+    return roundedFrame
+end
 
-    -- Conteúdo Principal
-    local ContentFrame = Instance.new("Frame")
-    ContentFrame.Name = "Content"
-    ContentFrame.Size = UDim2.new(1, 0, 1, -25)
-    ContentFrame.Position = UDim2.new(0, 0, 0, 25)
-    ContentFrame.BackgroundTransparency = 1
-    ContentFrame.Parent = MainFrame
+-- Criar a interface principal
+local function createInterface()
+    gui.Name = "RetrixAdminGUI"
+    gui.Parent = player:WaitForChild("PlayerGui")
+    gui.ResetOnSpawn = false
 
-    -- Abas
-    local TabFrame = Instance.new("Frame")
-    TabFrame.Name = "Tabs"
-    TabFrame.Size = UDim2.new(0, 70, 1, 0)
-    TabFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    TabFrame.BorderSizePixel = 0
-    TabFrame.Parent = ContentFrame
+    -- Frame principal
+    frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.4, 0, 0.6, 0)
+    frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundTransparency = 0.8
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
 
-    local TabList = Instance.new("UIListLayout")
-    TabList.Padding = UDim.new(0, 5)
-    TabList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    TabList.SortOrder = Enum.SortOrder.LayoutOrder
-    TabList.Parent = TabFrame
-
-    local AimbotTab = Instance.new("TextButton")
-    AimbotTab.Name = "Aimbot"
-    AimbotTab.Text = "Aimbot"
-    AimbotTab.Size = UDim2.new(1, -10, 0, 30)
-    AimbotTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    AimbotTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-    AimbotTab.Font = Enum.Font.SourceSans
-    AimbotTab.TextSize = 14
-    AimbotTab.Parent = TabFrame
-
-    local EspTab = Instance.new("TextButton")
-    EspTab.Name = "ESP"
-    EspTab.Text = "ESP"
-    EspTab.Size = UDim2.new(1, -10, 0, 30)
-    EspTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    EspTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-    EspTab.Font = Enum.Font.SourceSans
-    EspTab.TextSize = 14
-    EspTab.Parent = TabFrame
-
-    -- Conteúdo das Abas
-    local ContentArea = Instance.new("Frame")
-    ContentArea.Name = "ContentArea"
-    ContentArea.Size = UDim2.new(1, -70, 1, 0)
-    ContentArea.Position = UDim2.new(0, 70, 0, 0)
-    ContentArea.BackgroundTransparency = 1
-    ContentArea.Parent = ContentFrame
-
-    -- Aba Aimbot
-    local AimbotFrame = Instance.new("ScrollingFrame")
-    AimbotFrame.Name = "AimbotFrame"
-    AimbotFrame.Size = UDim2.new(1, 0, 1, 0)
-    AimbotFrame.BackgroundTransparency = 1
-    AimbotFrame.ScrollBarThickness = 0
-    AimbotFrame.Visible = true
-    AimbotFrame.Parent = ContentArea
-
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Padding = UDim.new(0, 5)
-    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.Parent = AimbotFrame
-
-    -- FOV Input
-    local FovLabel = Instance.new("TextLabel")
-    FovLabel.Text = "FOV: " .. AimFOV
-    FovLabel.Size = UDim2.new(1, 0, 0, 20)
-    FovLabel.BackgroundTransparency = 1
-    FovLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FovLabel.Font = Enum.Font.SourceSans
-    FovLabel.TextSize = 14
-    FovLabel.Parent = AimbotFrame
-
-    local FovTextBox = Instance.new("TextBox")
-    FovTextBox.Name = "FovInput"
-    FovTextBox.Size = UDim2.new(0.8, 0, 0, 20)
-    FovTextBox.Position = UDim2.new(0.1, 0, 0, 20)
-    FovTextBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    FovTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FovTextBox.Text = tostring(AimFOV)
-    FovTextBox.Font = Enum.Font.SourceSans
-    FovTextBox.TextSize = 14
-    FovTextBox.ClearTextOnFocus = false
-    FovTextBox.Parent = AimbotFrame
-
-    local FovSlider = Instance.new("TextButton")
-    FovSlider.Name = "FovSlider"
-    FovSlider.Size = UDim2.new(0.8, 0, 0, 10)
-    FovSlider.Position = UDim2.new(0.1, 0, 0, 45)
-    FovSlider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    FovSlider.Text = ""
-    FovSlider.Parent = AimbotFrame
-
-    local FovFill = Instance.new("Frame")
-    FovFill.Name = "Fill"
-    FovFill.Size = UDim2.new(AimFOV / 100, 0, 1, 0)
-    FovFill.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-    FovFill.BorderSizePixel = 0
-    FovFill.Parent = FovSlider
-
-    -- Part Selection
-    local PartLabel = Instance.new("TextLabel")
-    PartLabel.Text = "Aim Part: " .. AimPart
-    PartLabel.Size = UDim2.new(1, 0, 0, 20)
-    PartLabel.Position = UDim2.new(0, 0, 0, 60)
-    PartLabel.BackgroundTransparency = 1
-    PartLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    PartLabel.Font = Enum.Font.SourceSans
-    PartLabel.TextSize = 14
-    PartLabel.Parent = AimbotFrame
-
-    local HeadButton = Instance.new("TextButton")
-    HeadButton.Text = "Head"
-    HeadButton.Size = UDim2.new(0.25, 0, 0, 20)
-    HeadButton.Position = UDim2.new(0.1, 0, 0, 80)
-    HeadButton.BackgroundColor3 = AimPart == "Head" and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
-    HeadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    HeadButton.Font = Enum.Font.SourceSans
-    HeadButton.TextSize = 12
-    HeadButton.Parent = AimbotFrame
-
-    local ChestButton = Instance.new("TextButton")
-    ChestButton.Text = "Chest"
-    ChestButton.Size = UDim2.new(0.25, 0, 0, 20)
-    ChestButton.Position = UDim2.new(0.375, 0, 0, 80)
-    ChestButton.BackgroundColor3 = AimPart == "Torso" and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
-    ChestButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ChestButton.Font = Enum.Font.SourceSans
-    ChestButton.TextSize = 12
-    ChestButton.Parent = AimbotFrame
-
-    local LegButton = Instance.new("TextButton")
-    LegButton.Text = "Leg"
-    LegButton.Size = UDim2.new(0.25, 0, 0, 20)
-    LegButton.Position = UDim2.new(0.65, 0, 0, 80)
-    LegButton.BackgroundColor3 = AimPart == "HumanoidRootPart" and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
-    LegButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LegButton.Font = Enum.Font.SourceSans
-    LegButton.TextSize = 12
-    LegButton.Parent = AimbotFrame
-
-    -- Wall Check
-    local WallCheckButton = Instance.new("TextButton")
-    WallCheckButton.Text = "Wall Check: " .. (WallCheck and "ON" or "OFF")
-    WallCheckButton.Size = UDim2.new(0.8, 0, 0, 20)
-    WallCheckButton.Position = UDim2.new(0.1, 0, 0, 105)
-    WallCheckButton.BackgroundColor3 = WallCheck and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
-    WallCheckButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    WallCheckButton.Font = Enum.Font.SourceSans
-    WallCheckButton.TextSize = 14
-    WallCheckButton.Parent = AimbotFrame
-
-    -- Aimbot Toggle
-    local AimbotToggle = Instance.new("TextButton")
-    AimbotToggle.Text = "Aimbot: OFF"
-    AimbotToggle.Size = UDim2.new(0.8, 0, 0, 20)
-    AimbotToggle.Position = UDim2.new(0.1, 0, 0, 130)
-    AimbotToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    AimbotToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    AimbotToggle.Font = Enum.Font.SourceSans
-    AimbotToggle.TextSize = 14
-    AimbotToggle.Parent = AimbotFrame
-
-    -- Hitbox Expand
-    local HitboxLabel = Instance.new("TextLabel")
-    HitboxLabel.Text = "Hitbox Expand: " .. HitboxExpand
-    HitboxLabel.Size = UDim2.new(1, 0, 0, 20)
-    HitboxLabel.Position = UDim2.new(0, 0, 0, 155)
-    HitboxLabel.BackgroundTransparency = 1
-    HitboxLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    HitboxLabel.Font = Enum.Font.SourceSans
-    HitboxLabel.TextSize = 14
-    HitboxLabel.Parent = AimbotFrame
-
-    local HitboxTextBox = Instance.new("TextBox")
-    HitboxTextBox.Size = UDim2.new(0.8, 0, 0, 20)
-    HitboxTextBox.Position = UDim2.new(0.1, 0, 0, 175)
-    HitboxTextBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    HitboxTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    HitboxTextBox.Text = tostring(HitboxExpand)
-    HitboxTextBox.Font = Enum.Font.SourceSans
-    HitboxTextBox.TextSize = 14
-    HitboxTextBox.ClearTextOnFocus = false
-    HitboxTextBox.Parent = AimbotFrame
-
-    -- Aba ESP
-    local EspFrame = Instance.new("ScrollingFrame")
-    EspFrame.Name = "EspFrame"
-    EspFrame.Size = UDim2.new(1, 0, 1, 0)
-    EspFrame.BackgroundTransparency = 1
-    EspFrame.ScrollBarThickness = 0
-    EspFrame.Visible = false
-    EspFrame.Parent = ContentArea
-
-    local EspToggle = Instance.new("TextButton")
-    EspToggle.Text = "ESP: OFF"
-    EspToggle.Size = UDim2.new(0.8, 0, 0, 20)
-    EspToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    EspToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    EspToggle.Font = Enum.Font.SourceSans
-    EspToggle.TextSize = 14
-    EspToggle.Parent = EspFrame
-
-    local NameToggle = Instance.new("TextButton")
-    NameToggle.Text = "Show Name: OFF"
-    NameToggle.Size = UDim2.new(0.8, 0, 0, 20)
-    NameToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    NameToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    NameToggle.Font = Enum.Font.SourceSans
-    NameToggle.TextSize = 14
-    NameToggle.Parent = EspFrame
-
-    local HealthToggle = Instance.new("TextButton")
-    HealthToggle.Text = "Show Health: OFF"
-    HealthToggle.Size = UDim2.new(0.8, 0, 0, 20)
-    HealthToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    HealthToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    HealthToggle.Font = Enum.Font.SourceSans
-    HealthToggle.TextSize = 14
-    HealthToggle.Parent = EspFrame
-
-    local DistanceToggle = Instance.new("TextButton")
-    DistanceToggle.Text = "Show Distance: OFF"
-    DistanceToggle.Size = UDim2.new(0.8, 0, 0, 20)
-    DistanceToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    DistanceToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    DistanceToggle.Font = Enum.Font.SourceSans
-    DistanceToggle.TextSize = 14
-    DistanceToggle.Parent = EspFrame
-
-    -- Lógica de navegação
-    AimbotTab.MouseButton1Click:Connect(function()
-        AimbotFrame.Visible = true
-        EspFrame.Visible = false
-    end)
-
-    EspTab.MouseButton1Click:Connect(function()
-        EspFrame.Visible = true
-        AimbotFrame.Visible = false
-    end)
-
-    -- Minimizar
-    local MinimizedFrame = Instance.new("Frame")
-    MinimizedFrame.Name = "Minimized"
-    MinimizedFrame.Size = UDim2.new(0, 50, 0, 50)
-    MinimizedFrame.Position = MainFrame.Position
-    MinimizedFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    MinimizedFrame.BorderSizePixel = 0
-    MinimizedFrame.Visible = false
-    MinimizedFrame.Parent = ScreenGui
-
-    local UICorner2 = Instance.new("UICorner")
-    UICorner2.CornerRadius = UDim.new(0, 10)
-    UICorner2.Parent = MinimizedFrame
-
-    local Logo = Instance.new("TextLabel")
-    Logo.Text = "RH"
-    Logo.Size = UDim2.new(1, 0, 1, 0)
-    Logo.BackgroundTransparency = 1
-    Logo.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Logo.Font = Enum.Font.SourceSansBold
-    Logo.TextSize = 20
-    Logo.Parent = MinimizedFrame
-
-    MinimizeButton.MouseButton1Click:Connect(function()
-        MainFrame.Visible = false
-        MinimizedFrame.Visible = true
-        MinimizedFrame.Position = MainFrame.Position
-    end)
-
-    MinimizedFrame.MouseButton1Click:Connect(function()
-        MainFrame.Visible = true
-        MinimizedFrame.Visible = false
-    end)
-
-    -- Funções
-    FovTextBox.FocusLost:Connect(function()
-        local value = tonumber(FovTextBox.Text)
-        if value then
-            value = math.clamp(value, 0, 100)
-            AimFOV = value
-            FovTextBox.Text = tostring(value)
-            FovLabel.Text = "FOV: " .. value
-            FovFill.Size = UDim2.new(value / 100, 0, 1, 0)
+    -- Botão de minimizar (X)
+    minimizeButton = Instance.new("TextButton")
+    minimizeButton.Text = "X"
+    minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+    minimizeButton.Position = UDim2.new(1, -30, 0, 0)
+    minimizeButton.AnchorPoint = Vector2.new(1, 0)
+    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeButton.Font = Enum.Font.SourceSansBold
+    minimizeButton.TextSize = 20
+    minimizeButton.Parent = frame
+    minimizeButton.MouseButton1Click:Connect(function()
+        if isMinimized then
+            frame.Visible = true
+            logo.Visible = false
+            isMinimized = false
+        else
+            frame.Visible = false
+            logo.Visible = true
+            isMinimized = true
         end
     end)
 
-    HeadButton.MouseButton1Click:Connect(function()
-        AimPart = "Head"
-        PartLabel.Text = "Aim Part: Head"
-        HeadButton.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-        ChestButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        LegButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    -- Logo minimizada (aparece quando minimizado)
+    logo = Instance.new("ImageLabel")
+    logo.Image = "rbxassetid://123456789" -- Substitua por sua logo (PNG transparente)
+    logo.Size = UDim2.new(0, 50, 0, 50)
+    logo.Position = UDim2.new(0.5, 0, 0.5, 0)
+    logo.AnchorPoint = Vector2.new(0.5, 0.5)
+    logo.BackgroundTransparency = 0
+    logo.Parent = gui
+    logo.Visible = false
+    logo.Active = true
+    logo.MouseButton1Click:Connect(function()
+        frame.Visible = true
+        logo.Visible = false
+        isMinimized = false
     end)
 
-    ChestButton.MouseButton1Click:Connect(function()
-        AimPart = "Torso"
-        PartLabel.Text = "Aim Part: Chest"
-        ChestButton.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-        HeadButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        LegButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    end)
+    -- Container de abas
+    tabContainer = Instance.new("Frame")
+    tabContainer.Size = UDim2.new(1, 0, 0.8, 0)
+    tabContainer.Position = UDim2.new(0, 0, 0.1, 0)
+    tabContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    tabContainer.BackgroundTransparency = 0.7
+    tabContainer.BorderSizePixel = 0
+    tabContainer.Parent = frame
 
-    LegButton.MouseButton1Click:Connect(function()
-        AimPart = "HumanoidRootPart"
-        PartLabel.Text = "Aim Part: Leg"
-        LegButton.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-        HeadButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        ChestButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    end)
+    -- Botão Tags
+    tagButton = Instance.new("TextButton")
+    tagButton.Text = "🏷️ TAGS"
+    tagButton.Size = UDim2.new(0.4, 0, 0.1, 0)
+    tagButton.Position = UDim2.new(0, 0, 0, 0)
+    tagButton.BackgroundColor3 = Color3.fromRGB(80, 80, 200)
+    tagButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tagButton.Font = Enum.Font.SourceSansBold
+    tagButton.TextSize = 18
+    tagButton.Parent = tabContainer
 
-    WallCheckButton.MouseButton1Click:Connect(function()
-        WallCheck = not WallCheck
-        WallCheckButton.Text = "Wall Check: " .. (WallCheck and "ON" or "OFF")
-        WallCheckButton.BackgroundColor3 = WallCheck and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
-    end)
+    -- Botão VIP
+    vipButton = Instance.new("TextButton")
+    vipButton.Text = "💎 GANHAR VIP"
+    vipButton.Size = UDim2.new(0.4, 0, 0.1, 0)
+    vipButton.Position = UDim2.new(0, 0, 0.15, 0)
+    vipButton.BackgroundColor3 = Color3.fromRGB(80, 200, 80)
+    vipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    vipButton.Font = Enum.Font.SourceSansBold
+    vipButton.TextSize = 18
+    vipButton.Parent = tabContainer
 
-    AimbotToggle.MouseButton1Click:Connect(function()
-        AimEnabled = not AimEnabled
-        AimbotToggle.Text = "Aimbot: " .. (AimEnabled and "ON" or "OFF")
-        AimbotToggle.BackgroundColor3 = AimEnabled and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
-    end)
+    -- Botão Admin
+    adminButton = Instance.new("TextButton")
+    adminButton.Text = "👑 GANHAR ADMIN"
+    adminButton.Size = UDim2.new(0.4, 0, 0.1, 0)
+    adminButton.Position = UDim2.new(0, 0, 0.3, 0)
+    adminButton.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+    adminButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    adminButton.Font = Enum.Font.SourceSansBold
+    adminButton.TextSize = 18
+    adminButton.Parent = tabContainer
 
-    HitboxTextBox.FocusLost:Connect(function()
-        local value = tonumber(HitboxTextBox.Text)
-        if value then
-            value = math.clamp(value, 0, 100)
-            HitboxExpand = value
-            HitboxTextBox.Text = tostring(value)
-            HitboxLabel.Text = "Hitbox Expand: " .. value
+    -- Botão Owner
+    ownerButton = Instance.new("TextButton")
+    ownerButton.Text = "🔥 GANHAR OWNER"
+    ownerButton.Size = UDim2.new(0.4, 0, 0.1, 0)
+    ownerButton.Position = UDim2.new(0, 0, 0.45, 0)
+    ownerButton.BackgroundColor3 = Color3.fromRGB(200, 200, 80)
+    adminButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    adminButton.Font = Enum.Font.SourceSansBold
+    adminButton.TextSize = 18
+    ownerButton.Parent = tabContainer
+
+    -- Input de Tag Personalizada
+    customTagInput = Instance.new("TextBox")
+    customTagInput.PlaceholderText = "Digite sua tag..."
+    customTagInput.Size = UDim2.new(0.4, 0, 0.08, 0)
+    customTagInput.Position = UDim2.new(0, 0, 0.6, 0)
+    customTagInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    customTagInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    customTagInput.Font = Enum.Font.SourceSans
+    customTagInput.TextSize = 16
+    customTagInput.Parent = tabContainer
+
+    -- Botão Aplicar Tag
+    customTagButton = Instance.new("TextButton")
+    customTagButton.Text = "✅ APLICAR TAG"
+    customTagButton.Size = UDim2.new(0.4, 0, 0.08, 0)
+    customTagButton.Position = UDim2.new(0, 0, 0.7, 0)
+    customTagButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+    customTagButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    customTagButton.Font = Enum.Font.SourceSansBold
+    customTagButton.TextSize = 16
+    customTagButton.Parent = tabContainer
+
+    -- Animar bordas RGB
+    spawn(function()
+        while true do
+            for i = 1, #RGB_COLORS do
+                setRGBColor(frame, RGB_COLORS[i].r, RGB_COLORS[i].g, RGB_COLORS[i].b)
+                setRGBColor(minimizeButton, RGB_COLORS[i].r, RGB_COLORS[i].g, RGB_COLORS[i].b)
+                task.wait(0.8)
+            end
         end
     end)
 
-    EspToggle.MouseButton1Click:Connect(function()
-        EspEnabled = not EspEnabled
-        EspToggle.Text = "ESP: " .. (EspEnabled and "ON" or "OFF")
-        EspToggle.BackgroundColor3 = EspEnabled and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
+    -- Eventos dos botões
+    vipButton.MouseButton1Click:Connect(function()
+        -- Enviar pedido ao servidor (LEGÍTIMO)
+        local remoteEvent = game.ReplicatedStorage:FindFirstChild("GrantVIP")
+        if remoteEvent then
+            remoteEvent:FireServer()
+            print("[RetrixAdmin] Pedido de VIP enviado.")
+        else
+            warn("RemoteEvent 'GrantVIP' não encontrado! Crie no ReplicatedStorage.")
+        end
     end)
 
-    NameToggle.MouseButton1Click:Connect(function()
-        ShowName = not ShowName
-        NameToggle.Text = "Show Name: " .. (ShowName and "ON" or "OFF")
-        NameToggle.BackgroundColor3 = ShowName and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
+    adminButton.MouseButton1Click:Connect(function()
+        local remoteEvent = game.ReplicatedStorage:FindFirstChild("GrantAdmin")
+        if remoteEvent then
+            remoteEvent:FireServer()
+            print("[RetrixAdmin] Pedido de Admin enviado.")
+        else
+            warn("RemoteEvent 'GrantAdmin' não encontrado!")
+        end
     end)
 
-    HealthToggle.MouseButton1Click:Connect(function()
-        ShowHealth = not ShowHealth
-        HealthToggle.Text = "Show Health: " .. (ShowHealth and "ON" or "OFF")
-        HealthToggle.BackgroundColor3 = ShowHealth and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
+    ownerButton.MouseButton1Click:Connect(function()
+        local remoteEvent = game.ReplicatedStorage:FindFirstChild("GrantOwner")
+        if remoteEvent then
+            remoteEvent:FireServer()
+            print("[RetrixAdmin] Pedido de Owner enviado.")
+        else
+            warn("RemoteEvent 'GrantOwner' não encontrado!")
+        end
     end)
 
-    DistanceToggle.MouseButton1Click:Connect(function()
-        ShowDistance = not ShowDistance
-        DistanceToggle.Text = "Show Distance: " .. (ShowDistance and "ON" or "OFF")
-        DistanceToggle.BackgroundColor3 = ShowDistance and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(40, 40, 40)
-    end)
-
-    -- Função de Aimbot
-    RunService.RenderStepped:Connect(function()
-        if AimEnabled then
-            local closest = nil
-            local shortestDistance = AimFOV
-
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                    local part = player.Character:FindFirstChild(AimPart)
-                    if part then
-                        local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                        if onScreen then
-                            local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                            local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-
-                            if dist < shortestDistance then
-                                if WallCheck then
-                                    local ray = Ray.new(Camera.CFrame.Position, part.Position - Camera.CFrame.Position)
-                                    local hit, _ = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
-                                    if hit and hit:IsDescendantOf(player.Character) then
-                                        closest = part
-                                        shortestDistance = dist
-                                    end
-                                else
-                                    closest = part
-                                    shortestDistance = dist
-                                end
-                            end
-                        end
-                    end
-                end
+    customTagButton.MouseButton1Click:Connect(function()
+        local tag = customTagInput.Text
+        if tag and #tag > 0 and #tag <= 15 then
+            local remoteEvent = game.ReplicatedStorage:FindFirstChild("SetCustomTag")
+            if remoteEvent then
+                remoteEvent:FireServer(tag)
+                print("[RetrixAdmin] Tag personalizada enviada: " .. tag)
+                customTagInput.Text = ""
+            else
+                warn("RemoteEvent 'SetCustomTag' não encontrado!")
             end
+        else
+            warn("Tag inválida! Máximo de 15 caracteres.")
+        end
+    end)
 
-            if closest then
-                local target = closest.Position + Vector3.new(0, 0, 0)
-                local point = Camera:WorldToScreenPoint(target)
-                mousemoverel(point.X - mouse.X, point.Y - mouse.Y)
-            end
+    -- Arrastar a interface
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            dragOffset = Vector2.new(
+                frame.Position.X.Scale * frame.AbsoluteSize.X - input.Position.X,
+                frame.Position.Y.Scale * frame.AbsoluteSize.Y - input.Position.Y
+            )
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input, gameProcessed)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and not gameProcessed then
+            local newPos = Vector2.new(
+                (input.Position.X + dragOffset.X) / workspace.CurrentCamera.ViewportSize.X,
+                (input.Position.Y + dragOffset.Y) / workspace.CurrentCamera.ViewportSize.Y
+            )
+
+            frame.Position = UDim2.new(newPos.X, 0, newPos.Y, 0)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
         end
     end)
 end
 
--- Iniciar GUI
-createGui()
+-- Garantir que o script só rode se o jogador for o dono (ou tiver permissão)
+spawn(function()
+    wait(1)
+    if player.UserId == 123456789 then -- SUBSTITUA PELO SEU USERID
+        createInterface()
+    else
+        print("[RetrixAdmin] Acesso negado. Somente o dono pode usar este painel.")
+    end
+end)
